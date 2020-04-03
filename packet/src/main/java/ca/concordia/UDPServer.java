@@ -1,9 +1,7 @@
 package ca.concordia;
 
-import joptsimple.OptionParser;
-import joptsimple.OptionSet;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Arrays.asList;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -12,8 +10,11 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.DatagramChannel;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Arrays.asList;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
 
 public class UDPServer {
 
