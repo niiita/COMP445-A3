@@ -58,35 +58,6 @@ public class UDPClient {
     private static File filename;
 
     public static void main(String[] args) throws IOException {
-        // OptionParser parser = new OptionParser();
-        // parser.accepts("router-host", "Router
-        // hostname").withOptionalArg().defaultsTo("localhost");
-
-        // parser.accepts("router-port", "Router port
-        // number").withOptionalArg().defaultsTo("3000");
-
-        // parser.accepts("server-host", "EchoServer
-        // hostname").withOptionalArg().defaultsTo("localhost");
-
-        // parser.accepts("server-port", "EchoServer listening
-        // port").withOptionalArg().defaultsTo("8007");
-
-        // OptionSet opts = parser.parse(args);
-
-        // // Router address
-        // String routerHost = (String) opts.valueOf("router-host");
-        // int routerPort = Integer.parseInt((String) opts.valueOf("router-port"));
-
-        // // Server address
-        // String serverHost = (String) opts.valueOf("server-host");
-        // int serverPort = Integer.parseInt((String) opts.valueOf("server-port"));
-
-        // SocketAddress routerAddress = new InetSocketAddress(routerHost, routerPort);
-        // InetSocketAddress serverAddress = new InetSocketAddress(serverHost,
-        // serverPort);
-
-        // System.out.println("ROUTER ADDRESS: " + routerAddress);
-        // System.out.println("SERVER ADDRESS: " + serverAddress);
 
         String value;
         Console console = System.console();
@@ -222,30 +193,12 @@ public class UDPClient {
                     SocketAddress routerAddress = new InetSocketAddress(routerHost, routerPort);
                     InetSocketAddress serverAddress = new InetSocketAddress(serverHost, serverPort);
 
-                    System.out.println("path:" + path);
-                    System.out.println("host:" + host);
-                    System.out.println("type:" + type);
-                    System.out.println("isData:" + isData);
-                    System.out.println("isFile:" + isFile);
-                    System.out.println("isVerbose:" + isVerbose);
-                    System.out.println("filename:" + filename);
-                    System.out.println("routerAddress:" + routerAddress);
-                    System.out.println("serverAddress:" + serverAddress);
-
                     if (type.equals("GET")) {
                         getRequest(routerAddress, serverAddress, path);
                     } else if (type.equals("POST")) {
                         postRequest(routerAddress, serverAddress, path, filename, isData);
                     }
-                    // We should get all the parameters we had before and pass it in to
-                    // get/postRequest()
-                    // getRequest(path, host, type, null, isData, isFile, isVerbose, filename,
-                    // routerAddress, serverAddress);
-                    // routerAddress:localhost/127.0.0.1:3000
-                    // serverAddress:localhost/127.0.0.1:8007
 
-                    // if we can get redirect working
-                    // bonusRedirect();
                 } else {
                     System.out.println("The input was incorrect. Please try again. Enter '0' to exit");
                 }
@@ -400,8 +353,6 @@ public class UDPClient {
 
     private static void postRequest(SocketAddress routerAddr, InetSocketAddress serverAddr, String path, File filename,
             boolean isData) throws IOException {
-        System.out.println("post");
-        System.out.println(path);
         try (DatagramChannel channel = DatagramChannel.open()) {
             String req = "POST " + path + " HTTP/1.0";
             Packet p = new Packet.Builder().setType(0).setSequenceNumber(1L).setPortNumber(serverAddr.getPort())

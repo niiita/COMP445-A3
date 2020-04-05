@@ -15,6 +15,13 @@ import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.DatagramChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,9 +43,6 @@ public class UDPServer {
             channel.bind(new InetSocketAddress(port));
             logger.info("EchoServer is listening at {}", channel.getLocalAddress());
             ByteBuffer buf = ByteBuffer.allocate(Packet.MAX_LEN).order(ByteOrder.BIG_ENDIAN);
-
-            System.out.println("1: " + buf);
-
             for (;;) {
                 buf.clear();
                 SocketAddress router = channel.receive(buf);
@@ -54,7 +58,6 @@ public class UDPServer {
                 logger.info("Router: {}", router);
 
                 String[] req = payload.toString().split(" ", -2);
-                System.out.println(req[0]);
                 String path = "";
                 for (int i = 1; i < req.length - 1; i++) {
 
@@ -62,20 +65,19 @@ public class UDPServer {
 
                 }
 
-                System.out.println(path);
+                // System.out.println(path);
 
-                String testing = "";
+                String payLoad = "";
 
                 if (req[0].toString().equalsIgnoreCase("GET")) {
-                    System.out.println("Processing GET request: " + req[1]);
-                    testing = get(path);
+                    logger.info("GET request received: " + req[1]);
+                    payLoad = get(path);
                 } else if (req[0].toString().equalsIgnoreCase("POST")) {
-                    System.out.println("Processing POST request: " + req[1]);
-                    testing = post(path);
+                    logger.info("POST request received: " + req[1]);
+                    payLoad = post(path);
                 } else {
-                    testing = "Request invalid";
+                    payLoad = "Request invalid";
                 }
-                // System.out.println(testing);
 
                 // Send the response to the router not the client.
                 // The peer address of the packet is the address of the client already.
@@ -83,9 +85,11 @@ public class UDPServer {
                 // This demonstrate how to create a new packet from an existing packet.
                 // String testing = "klk";
                 // Packet resp = packet.toBuilder().setPayload(payload.getBytes()).create();
-                Packet resp = packet.toBuilder().setPayload(testing.getBytes()).create();
+                Packet resp = packet.toBuilder().setPayload(payLoad.getBytes()).create();
 
                 channel.send(resp.toBuffer(), router);
+
+                logger.info("Response sent successfully!");
 
             }
         }
@@ -101,69 +105,65 @@ public class UDPServer {
         server.listenAndServe(port);
     }
 
-    // Lists all the files in a given directory
-    public static void getFileNames(String path) {
-        File directory = new File(path);
-
-        File[] items = directory.listFiles();
-
-        System.out.println(items);
-        String line = "";
-        if (items != null) {
-            for (int i = 0; i < items.length; i++) {
-                if (items[i].isFile())
-                    line += items[i].getName() + "\r\n";
-                else if (items[i].isDirectory())
-                    line += "<DIRECTORY>" + items[i].getName() + "\r\n";
-            }
-            formattedOutputResponse(line);
-        } else {
-            System.out.println(errorResponse(404));
-        }
-    }
-
     public static String get(String path) {
-        System.out.println("in get(): " + path);
         String body = "";
         String response = "";
         String filename;
-        // If there is no path (i.e. just localhost:3001 is called)
-        if (path.contains("-o")) {
-            filename = path.substring(path.indexOf("-o") + 3, path.indexOf(".txt")) + ".txt";
-            System.out.println("filename:" + filename);
+        if (path.length() >= 1) {
 
-            try {
-                BufferedReader in = new BufferedReader(new FileReader(filename));
-                String line = "";
-                StringBuilder StringBuilder = new StringBuilder();
+            if (path.contains("-o")) {
+                filename = path.substring(path.indexOf("-o") + 3, path.indexOf(".txt")) + ".txt";
 
-                while ((line = in.readLine()) != null) {
-                    System.out.println("while?");
-                    String formattedLine = line.replaceAll("[\\{\\}]", "").replaceAll("\\s", "");
+                try {
+                    BufferedReader in = new BufferedReader(new FileReader(filename));
+                    String line = "";
+                    StringBuilder StringBuilder = new StringBuilder();
 
-                    String[] linesArray = formattedLine.split(",");
-                    for (int i = 0; i < linesArray.length; i++) {
+                    while ((line = in.readLine()) != null) {
+                        String formattedLine = line.replaceAll("[\\{\\}]", "").replaceAll("\\s", "");
 
-                        StringBuilder.append(linesArray[i] + ",");
-                        System.out.println(linesArray[i]);
+                        String[] linesArray = formattedLine.split(",");
+                        for (int i = 0; i < linesArray.length; i++) {
+
+                            StringBuilder.append(linesArray[i] + ",");
+                            // System.out.println(linesArray[i]);
+                        }
+                        body = "{" + StringBuilder.toString().substring(0, StringBuilder.length() - 1) + "}";
+                        response = "Received\r\n" + "HTTP/1.0 200 OK\r\n" + "Content-Length: " + body.length() + "\r\n"
+                                + "Content-Disposition: inline" + "\r\n"
+                                + "Content-Disposition: attachment; filename=\"" + filename + "\"" + "\r\n"
+                                + "Content-Type: application/json\r\n\r\n" + body;
+
                     }
-                    body = "{" + StringBuilder.toString().substring(0, StringBuilder.length() - 1) + "}";
+                    in.close();
+                    logger.info("Response sent to client\n" + response);
+
+                } catch (Exception e) {
+                    // Maybe we can create an actual 404 response from server here?
+                    logger.info("Sorry the file you are looking for does not exist");
+                    response = "HTTP/1.0 404 Not Found\r\n" + "User Agent: Concordia\r\n";
+                    logger.info("Response sent to client\n" + response);
+                    // e.printStackTrace();
+                }
+
+            } else {
+                try (Stream<Path> walk = Files.walk(Paths.get(System.getProperty("user.dir")))) {
+
+                    List<String> result = walk.filter(Files::isRegularFile).map(x -> x.toString())
+                            .collect(Collectors.toList());
+                    for (final ListIterator<String> i = result.listIterator(); i.hasNext();) {
+                        final String element = i.next();
+                        body = body.concat(element.substring(element.lastIndexOf("\\"), element.length()) + "\n");
+                    }
                     response = "Received\r\n" + "HTTP/1.0 200 OK\r\n" + "Content-Length: " + body.length() + "\r\n"
                             + "Content-Disposition: inline" + "\r\n" + "Content-Disposition: attachment; filename=\""
-                            + filename + "\"" + "\r\n" + "Content-Type: application/json\r\n\r\n" + body;
+                            + "NA" + "\"" + "\r\n" + "Content-Type: application/json\r\n\r\n"
+                            + "Here is the list of files in the current directory:\r\n" + body;
 
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
-                in.close();
-                System.out.println("Response sent to client\n" + response);
-
-            } catch (Exception e) {
-                // Maybe we can create an actual 404 response from server here?
-                System.out.println("Sorry the file you are looking for does not exist");
-                response = "HTTP/1.0 404 Not Found\r\n" + "User Agent: Concordia\r\n";
-                System.out.println("Response sent to client\n" + response);
-                // e.printStackTrace();
             }
-
         } else {
             body = "{\"A3\" : \"sample body for get request\"}";
 
@@ -182,42 +182,31 @@ public class UDPServer {
         String directory = "";
         String filename = "";
         String data = "{\"A3\" : \"default body for post request\"}";
-        System.out.println("in POST");
-        System.out.println(path);
+        logger.info("Processing POST request");
         if (path.contains("-f")) {
             directory = path.substring(path.indexOf("-f") + 3, path.lastIndexOf("/"));
-            System.out.println("directory:" + directory);
             filename = path.substring(path.lastIndexOf("/") + 1, path.indexOf(".txt") + 4);
-            System.out.println("filename:" + filename);
         }
 
         if (path.contains("-d")) {
             directory = path.substring(1, path.lastIndexOf("/") + 1);
-            System.out.println(directory);
             directory = directory.replace("/", "\\");
-            System.out.println(directory);
-            // directory = "\\domingo\\";
-            // System.out.println(directory);
             filename = path.substring(path.lastIndexOf("/") + 1, path.indexOf(".txt") + 4);
-            System.out.println(filename);
             data = path.substring(path.indexOf("{"), path.lastIndexOf("}") + 1);
-            System.out.println(data);
             path = directory.concat(filename);
         }
 
-        System.out.println("Working Directory = " + System.getProperty("user.dir"));
+        // System.out.println("Working Directory = " + System.getProperty("user.dir"));
 
         // ***NOTE*** if conditions hard coded ATM must refactor to verify path and
         // filename
         // probably need to get existing directories and files to compare given path
         File tmpDir = new File(System.getProperty("user.dir") + directory);
         if (tmpDir.exists()) {// directory exist
-            System.out.println("directorio existe");
             File tmpFile = new File(System.getProperty("user.dir") + directory + "\\" + filename);
 
             if (tmpFile.exists()) { // filename already exists
                 // append to corresponding file
-                System.out.println("file existe");
                 try {
                     FileWriter f = new FileWriter(System.getProperty("user.dir") + directory + "\\" + filename, true);
                     BufferedWriter b = new BufferedWriter(f);
@@ -228,7 +217,7 @@ public class UDPServer {
                     response = "Received\r\n" + "POST " + path + " HTTP/1.0\r\n" + "Content-Type:application/json\r\n"
                             + "Content-Length: " + body.length() + "\r\n" + "\r\n" + body;
 
-                    System.out.println("Response sent to client\n" + response);
+                    logger.info("Response sent to client\n" + response);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -238,13 +227,13 @@ public class UDPServer {
                 try {
                     PrintWriter extWriter = new PrintWriter(
                             System.getProperty("user.dir") + directory + "\\" + filename);
-                    extWriter.write(data);
+                    extWriter.println(data);
                     extWriter.close();
                     body = data;
                     response = "Received\r\n" + "POST " + path + " HTTP/1.0\r\n" + "Content-Type:application/json\r\n"
                             + "Content-Length: " + body.length() + "\r\n" + "\r\n" + body;
 
-                    System.out.println("Response sent to client\n" + response);
+                    logger.info("Response sent to client\n" + response);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -257,33 +246,33 @@ public class UDPServer {
             // Creating the directory
             boolean bool = file.mkdirs();
             if (bool) {
-                System.out.println("Directory created successfully");
+                logger.info("Directory created successfully");
             } else {
-                System.out.println("Sorry couldnt create specified directory");
+                logger.info("Sorry couldnt create specified directory");
             }
             try {
                 File newFile = new File(System.getProperty("user.dir") + directory + "\\" + filename);
                 if (newFile.createNewFile()) {
-                    System.out.println("File created: " + newFile.getName());
+                    logger.info("File created: " + newFile.getName());
                     try {
                         PrintWriter extWriter = new PrintWriter(
                                 System.getProperty("user.dir") + directory + "\\" + filename);
-                        extWriter.write(data);
+                        extWriter.println(data);
                         extWriter.close();
                         body = data;
                         response = "Received\r\n" + "POST " + path + " HTTP/1.0\r\n"
                                 + "Content-Type:application/json\r\n" + "Content-Length: " + body.length() + "\r\n"
                                 + "\r\n" + body;
 
-                        System.out.println("Response sent to client\n" + response);
+                        logger.info("Response sent to client\n" + response);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
                 } else {
-                    System.out.println("File already exists.");
+                    logger.info("File already exists.");
                 }
             } catch (IOException e) {
-                System.out.println("An error occurred.");
+                logger.info("An error occurred.");
                 e.printStackTrace();
             }
         }
@@ -292,28 +281,4 @@ public class UDPServer {
 
     }
 
-    // Returns an error response
-    private static String errorResponse(int errorStatusCode) {
-        switch (errorStatusCode) {
-            case 403:
-                return "403 Forbidden";
-            case 404:
-                return "404 Not Found";
-            default:
-                return "400 Bad Request";
-        }
-    }
-
-    private static void formattedOutputResponse(String response) {
-
-        if (isVerbose) {
-            System.out.println(response);
-        } else {
-            String[] responseFormatted = response.split("\n\n");
-
-            for (int i = 1; i < responseFormatted.length; i++)
-                System.out.println(responseFormatted[i]);
-        }
-
-    }
 }
