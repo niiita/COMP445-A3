@@ -249,9 +249,10 @@ public class UDPClient {
             // PrintWriter writer = new PrintWriter(p);
             // String fileName = null;
 
-            if (path.contains("status_code=3")) {
-                System.out.println("Uh-oh.. We don't have you're looking for, don't worry! You're being redirected");
-            }
+            // if (path.contains("status_code=3")) {
+            // System.out.println("Uh-oh.. We don't have you're looking for, don't worry!
+            // You're being redirected");
+            // }
 
             // Check if output file requested
             // if (path.contains("-o")) {
