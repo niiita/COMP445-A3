@@ -33,67 +33,34 @@ public class UDPServer {
 
     private static final Logger logger = LoggerFactory.getLogger(UDPServer.class);
 
-    private void listenAndServe(int port) throws IOException {
-
-        try (DatagramChannel channel = DatagramChannel.open()) {
-            channel.bind(new InetSocketAddress(port));
-            logger.info("EchoServer is listening at {}", channel.getLocalAddress());
-            ByteBuffer buf = ByteBuffer.allocate(Config.PKT_MAX_LEN).order(ByteOrder.BIG_ENDIAN);
-            for (;;) {// add threading for multiserve
-                buf.clear();
-                SocketAddress router = channel.receive(buf);
-
-                // Parse a packet from the received raw data.
-                buf.flip();
-                Packet packet = Packet.fromBuffer(buf);
-                buf.flip();
-
-                String payload = new String(packet.getPayload(), UTF_8);
-                logger.info("Packet: {}", packet);
-                logger.info("Payload: {}", payload);
-                logger.info("Router: {}", router);
-
-                String[] req = payload.toString().split(" ", -2);
-                String path = "";
-                for (int i = 1; i < req.length - 1; i++) {
-
-                    path = path.concat(" " + req[i]);
-
-                }
-
-                // System.out.println(path);
-
-                String payLoad = "";
-
-                if (req[0].toString().equalsIgnoreCase("GET")) {
-                    logger.info("GET request received: " + req[1]);
-                    payLoad = get(path);
-                } else if (req[0].toString().equalsIgnoreCase("POST")) {
-                    logger.info("POST request received: " + req[1]);
-                    payLoad = post(path);
-                } else {
-                    payLoad = "Request invalid";
-                }
-
-                // Send the response to the router not the client.
-                // The peer address of the packet is the address of the client already.
-                // We can use toBuilder to copy properties of the current packet.
-                // This demonstrate how to create a new packet from an existing packet.
-                // String testing = "klk";
-                // Packet resp = packet.toBuilder().setPayload(payload.getBytes()).create();
-                Packet resp = packet.toBuilder().setPayload(payLoad.getBytes()).create();
-
-                // List<Packet> packets = Packet.buildPacketList(0, router, packet,
-                // payLoad.getBytes());
-                // for (Packet p : packets) {
-                // channel.send(p.toBuffer(), router);
-                // }
-
-                channel.send(resp.toBuffer(), router);
-
-                logger.info("Response sent successfully!");
-
+    private void listenAndServe(int port) {
+        for (;;) {
+            NetworkMessage receivedMessage = Transporter.listenForMessage(port);
+            if (receivedMessage == null) {
+                continue;
             }
+
+            String[] req = receivedMessage.getPayload().split(" ", -2);
+            String path = "";
+            for (int i = 1; i < req.length - 1; i++) {
+                path = path.concat(" " + req[i]);
+            }
+
+            String responsePayload = "";
+
+            if (req[0].equalsIgnoreCase("GET")) {
+                logger.info("GET request received: " + req[1]);
+                responsePayload = get(path);
+            } else if (req[0].equalsIgnoreCase("POST")) {
+                logger.info("POST request received: " + req[1]);
+                responsePayload = post(path);
+            } else {
+                responsePayload = "Request invalid";
+            }
+
+            Transporter.transport(responsePayload, receivedMessage.getRouterAddress(), receivedMessage.getPeerAddress(),
+                    receivedMessage.getPeerPort(), false);
+            logger.info("Response sent successfully!");
         }
     }
 
@@ -221,9 +188,10 @@ public class UDPServer {
                 System.out.println("filename exists");
                 try {
                     if (inline) {
-                        PrintWriter extWriter = new PrintWriter(
-                                System.getProperty("user.dir") + directory + "\\" + filename);
-                        extWriter.write("\n" + data);
+                        BufferedWriter extWriter = new BufferedWriter(
+                                new FileWriter(System.getProperty("user.dir") + directory + "\\" + filename));
+                        extWriter.newLine();
+                        extWriter.write(data);
                         extWriter.close();
                         body = data;
                         response = "Received\r\n" + "POST " + path + " HTTP/1.0\r\n"
