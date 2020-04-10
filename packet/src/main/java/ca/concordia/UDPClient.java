@@ -5,37 +5,17 @@ import joptsimple.OptionSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import ca.Httpc;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.nio.ByteBuffer;
-import java.nio.channels.DatagramChannel;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.charset.StandardCharsets;
-import java.util.Set;
 
-import static java.nio.channels.SelectionKey.OP_READ;
-
-import java.io.BufferedReader;
 import java.io.Console;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.InputStream;
-import java.io.PrintWriter;
-import java.net.Socket;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.*;
-import java.util.Arrays;
-import java.io.FileWriter;
-import java.io.IOException;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.FileReader;
 
 public class UDPClient {
 
@@ -73,7 +53,7 @@ public class UDPClient {
             System.exit(0);
         }
 
-        System.out.println("COMP 445 - Assignment #1 - Tse-Chun Lau (29676279), Joo Yeon Lee (25612950)\n");
+        System.out.println("COMP 445 - Assignment #3 - Joo Yeon Lee (25612950)\n");
 
         // HTTPC
         while (patternCheck != true) {
@@ -197,7 +177,7 @@ public class UDPClient {
                     if (type.equals("GET")) {
                         getRequest(routerAddress, serverAddress, path);
                     } else if (type.equals("POST")) {
-                        postRequest(routerAddress, serverAddress, path, filename, isData);
+                        postRequest(routerAddress, serverAddress, path);
                     }
 
                 } else {
@@ -232,168 +212,20 @@ public class UDPClient {
         }
     }
 
-    // private static void get(String path, String host, String type, String query,
-    // boolean isData, boolean isFile, boolean isVerbose, File file, SocketAddress
-    // routerAddr, InetSocketAddress serverAddr) throws IOException ){
-    private static void getRequest(SocketAddress routerAddr, InetSocketAddress serverAddr, String path)
-            throws IOException {
-        System.out.println("executing GET");
-        try (DatagramChannel channel = DatagramChannel.open()) {
-            String req = "GET " + path + " HTTP/1.0"; // body
-
-            System.out.println("with request: " + req);
-            // Packet p = new
-            // Packet.Builder().setType(0).setSequenceNumber(1L).setPortNumber(serverAddr.getPort())
-            // .setPeerAddress(serverAddr.getAddress()).setPayload(req.getBytes()).create();
-            List<Packet> packets = Packet.buildPacketList(0, serverAddr.getAddress(), serverAddr.getPort(),
-                    req.getBytes());
-            for (Packet p : packets) {
-                channel.send(p.toBuffer(), routerAddr);
-            }
-
-            // #System.out.println(p); #1 peer=localhost/127.0.0.1:8007, size=11
-
-            // PrintWriter writer = new PrintWriter(p);
-            // String fileName = null;
-
-            // if (path.contains("status_code=3")) {
-            // System.out.println("Uh-oh.. We don't have you're looking for, don't worry!
-            // You're being redirected");
-            // }
-
-            // Check if output file requested
-            // if (path.contains("-o")) {
-            // fileName = path.substring(path.indexOf("-o") + 3, path.length());
-            // path = path.substring(0, path.indexOf("-o"));
-            // }
-            // System.out.println(
-            // serverAddr.getAddress().toString().substring(0,
-            // serverAddr.getAddress().toString().indexOf("/")));
-            // Substituting host
-            // Define the request
-            String request = "";
-            if (path == "" || path == null) {
-
-                request = "GET / HTTP/1.0\r\nHost: " + serverAddr.getAddress().toString().substring(0,
-                        serverAddr.getAddress().toString().indexOf("/")) + "\r\n\r\n";
-            } else {
-                request = "GET " + path + " HTTP/1.0";
-            }
-            // writer.println(request);
-
-            if (headerString != "") {
-                String[] headersArray = headerString.split(" ");
-                for (int i = 0; i < headersArray.length; i++) {
-                    // writer.println(headersArray[i]);
-                }
-
-                // Modify the string if necessary
-                for (String header : headersArray) {
-                    if (header.contains("=")) {
-                        // writer.println(header.split("=")[0] + ":" + header.split("=")[1]);
-                    }
-                }
-            }
-
-            // writer.println("");
-            // writer.flush();
-
-            // BufferedReader bufRead = new BufferedReader(new
-            // InputStreamReader(socket.getInputStream()));
-
-            // String outStr;
-            String response = "";
-
-            // while ((outStr = bufRead.readLine()) != null) {
-            // response += outStr + "\n";
-            // }
-
-            // Format output as needed
-            formattedOutputResponse(isVerbose, response);
-
-            // BONUS: updating cURL command line to output to textfile.
-            // if (fileName != null) {
-            // try {
-            // PrintWriter extWriter = new PrintWriter(fileName);
-            // System.out.println("resp:" + response);
-            // extWriter.write(response);
-            // extWriter.close();
-            // } catch (IOException e) {
-            // System.out.println(e.getMessage());
-            // }
-            // }
-
-            // bufRead.close();
-            // writer.close();
-            // socket.close();
-
-            logger.info("Sending \"{}\" to router at {}", req, routerAddr);
-
-            // Try to receive a packet within timeout.
-            channel.configureBlocking(false);
-            Selector selector = Selector.open();
-            channel.register(selector, OP_READ);
-            logger.info("Waiting for the response");
-            selector.select(5000);
-
-            Set<SelectionKey> keys = selector.selectedKeys();
-            if (keys.isEmpty()) {
-                logger.error("No response after timeout");
-                return;
-            }
-
-            // We just want a single response.
-            ByteBuffer buf = ByteBuffer.allocate(Packet.MAX_LEN);
-            SocketAddress router = channel.receive(buf);
-            buf.flip();
-            Packet resp = Packet.fromBuffer(buf);
-            logger.info("Packet: {}", resp);
-            logger.info("Router: {}", router);
-            String payload = new String(resp.getPayload(), StandardCharsets.UTF_8);
-            logger.info("Payload: {}", payload);
-
-            keys.clear();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+    private static void getRequest(SocketAddress routerAddr, InetSocketAddress serverAddr, String path) {
+        String req = Httpc.createGetRequest(path);
+        logger.info("Executing get request: {}", req);
+        String responsePayload = Transporter.transport(req, routerAddr, serverAddr);
+        logger.info("Payload: {}", responsePayload);
 
     }
 
-    private static void postRequest(SocketAddress routerAddr, InetSocketAddress serverAddr, String path, File filename,
-            boolean isData) throws IOException {
-        try (DatagramChannel channel = DatagramChannel.open()) {
-            String req = "POST " + path + " HTTP/1.0";
-            Packet p = new Packet.Builder().setType(0).setSequenceNumber(1L).setPortNumber(serverAddr.getPort())
-                    .setPeerAddress(serverAddr.getAddress()).setPayload(req.getBytes()).create();
-            channel.send(p.toBuffer(), routerAddr);
+    private static void postRequest(SocketAddress routerAddr, InetSocketAddress serverAddr, String path) {
+        String req = Httpc.createPostRequest(path);
+        logger.info("Executing post request: {}", req);
+        String responsePayload = Transporter.transport(req, routerAddr, serverAddr);
+        logger.info("Payload: {}", responsePayload);
 
-            logger.info("Sending \"{}\" to router at {}", req, routerAddr);
-
-            // Try to receive a packet within timeout.
-            channel.configureBlocking(false);
-            Selector selector = Selector.open();
-            channel.register(selector, OP_READ);
-            logger.info("Waiting for the response");
-            selector.select(5000);
-
-            Set<SelectionKey> keys = selector.selectedKeys();
-            if (keys.isEmpty()) {
-                logger.error("No response after timeout");
-                return;
-            }
-
-            // We just want a single response.
-            ByteBuffer buf = ByteBuffer.allocate(Packet.MAX_LEN);
-            SocketAddress router = channel.receive(buf);
-            buf.flip();
-            Packet resp = Packet.fromBuffer(buf);
-            logger.info("Packet: {}", resp);
-            logger.info("Router: {}", router);
-            String payload = new String(resp.getPayload(), StandardCharsets.UTF_8);
-            logger.info("Payload: {}", payload);
-
-            keys.clear();
-        }
     }
 
     // Displays the help menu

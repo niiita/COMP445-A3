@@ -15,10 +15,6 @@ import java.util.List;
  */
 public class Packet {
 
-    public static final int PAYLOAD_MAX_LEN = 1013;
-    public static final int MIN_LEN = 11;
-    public static final int MAX_LEN = MIN_LEN + PAYLOAD_MAX_LEN;
-
     private final int type;
     private final long sequenceNumber;
     private final InetAddress peerAddress;
@@ -79,7 +75,7 @@ public class Packet {
      * flipped and ready for get operations.
      */
     public ByteBuffer toBuffer() {
-        ByteBuffer buf = ByteBuffer.allocate(MAX_LEN).order(ByteOrder.BIG_ENDIAN);
+        ByteBuffer buf = ByteBuffer.allocate(Config.PKT_MAX_LEN).order(ByteOrder.BIG_ENDIAN);
         write(buf);
         buf.flip();
         return buf;
@@ -99,7 +95,7 @@ public class Packet {
      * fromBuffer creates a packet from the given ByteBuffer in BigEndian.
      */
     public static Packet fromBuffer(ByteBuffer buf) throws IOException {
-        if (buf.limit() < MIN_LEN || buf.limit() > MAX_LEN) {
+        if (buf.limit() < Config.PKT_MIN_LEN || buf.limit() > Config.PKT_MAX_LEN) {
             throw new IOException("Invalid length");
         }
 
@@ -123,7 +119,7 @@ public class Packet {
      * fromBytes creates a packet from the given array of bytes.
      */
     public static Packet fromBytes(byte[] bytes) throws IOException {
-        ByteBuffer buf = ByteBuffer.allocate(MAX_LEN).order(ByteOrder.BIG_ENDIAN);
+        ByteBuffer buf = ByteBuffer.allocate(Config.PKT_MAX_LEN).order(ByteOrder.BIG_ENDIAN);
         buf.put(bytes);
         buf.flip();
         return fromBuffer(buf);
@@ -131,14 +127,14 @@ public class Packet {
 
     public static List<Packet> buildPacketList(int type, InetAddress peerAddress, int portNumber, byte[] payload) {
         List<Packet> packetList = new ArrayList<Packet>();
-        int packetCount = (int) Math.ceil((double) payload.length / PAYLOAD_MAX_LEN);
+        int packetCount = (int) Math.ceil((double) payload.length / Config.PKT_PAYLOAD_MAX_LEN);
 
         for (int i = 0; i < packetCount; i++) {
-            int endRange = (i + 1) * PAYLOAD_MAX_LEN;
+            int endRange = (i + 1) * Config.PKT_PAYLOAD_MAX_LEN;
             if (i + 1 == packetCount) {
                 endRange = payload.length;
             }
-            byte[] payloadChunk = Arrays.copyOfRange(payload, i * PAYLOAD_MAX_LEN, endRange);
+            byte[] payloadChunk = Arrays.copyOfRange(payload, i * Config.PKT_PAYLOAD_MAX_LEN, endRange);
             packetList.add(new Packet(type, i + 1, peerAddress, portNumber, payloadChunk));
         }
 

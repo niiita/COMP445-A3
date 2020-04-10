@@ -33,17 +33,13 @@ public class UDPServer {
 
     private static final Logger logger = LoggerFactory.getLogger(UDPServer.class);
 
-    private static boolean isVerbose = false;
-    private static boolean patternCheck = false;
-    private static File filename;
-
     private void listenAndServe(int port) throws IOException {
 
         try (DatagramChannel channel = DatagramChannel.open()) {
             channel.bind(new InetSocketAddress(port));
             logger.info("EchoServer is listening at {}", channel.getLocalAddress());
-            ByteBuffer buf = ByteBuffer.allocate(Packet.MAX_LEN).order(ByteOrder.BIG_ENDIAN);
-            for (;;) {
+            ByteBuffer buf = ByteBuffer.allocate(Config.PKT_MAX_LEN).order(ByteOrder.BIG_ENDIAN);
+            for (;;) {// add threading for multiserve
                 buf.clear();
                 SocketAddress router = channel.receive(buf);
 
@@ -87,6 +83,12 @@ public class UDPServer {
                 // Packet resp = packet.toBuilder().setPayload(payload.getBytes()).create();
                 Packet resp = packet.toBuilder().setPayload(payLoad.getBytes()).create();
 
+                // List<Packet> packets = Packet.buildPacketList(0, router, packet,
+                // payLoad.getBytes());
+                // for (Packet p : packets) {
+                // channel.send(p.toBuffer(), router);
+                // }
+
                 channel.send(resp.toBuffer(), router);
 
                 logger.info("Response sent successfully!");
@@ -120,7 +122,7 @@ public class UDPServer {
                     StringBuilder StringBuilder = new StringBuilder();
 
                     while ((line = in.readLine()) != null) {
-                        String formattedLine = line.replaceAll("[\\{\\}]", "").replaceAll("\\s", "");
+                        String formattedLine = line.replaceAll("[\\{\\}]", "").replaceAll("\\s", " ");
 
                         String[] linesArray = formattedLine.split(",");
                         for (int i = 0; i < linesArray.length; i++) {
@@ -182,17 +184,25 @@ public class UDPServer {
         String directory = "";
         String filename = "";
         String data = "{\"A3\" : \"default body for post request\"}";
+        boolean inline = false;
         logger.info("Processing POST request");
+        System.out.println("path: " + path);
         if (path.contains("-f")) {
             directory = path.substring(path.indexOf("-f") + 3, path.lastIndexOf("/"));
             filename = path.substring(path.lastIndexOf("/") + 1, path.indexOf(".txt") + 4);
+            System.out.println(directory);
+            System.out.println(filename);
         }
 
         if (path.contains("-d")) {
             directory = path.substring(1, path.lastIndexOf("/") + 1);
             directory = directory.replace("/", "\\");
             filename = path.substring(path.lastIndexOf("/") + 1, path.indexOf(".txt") + 4);
-            data = path.substring(path.indexOf("{"), path.lastIndexOf("}") + 1);
+            if (path.contains("{")) {
+                data = path.substring(path.indexOf("{"), path.lastIndexOf("}") + 1);
+                inline = true;
+            }
+
             path = directory.concat(filename);
         }
 
@@ -203,20 +213,48 @@ public class UDPServer {
         // probably need to get existing directories and files to compare given path
         File tmpDir = new File(System.getProperty("user.dir") + directory);
         if (tmpDir.exists()) {// directory exist
+            System.out.println("directory exists");
             File tmpFile = new File(System.getProperty("user.dir") + directory + "\\" + filename);
 
             if (tmpFile.exists()) { // filename already exists
                 // append to corresponding file
+                System.out.println("filename exists");
                 try {
-                    FileWriter f = new FileWriter(System.getProperty("user.dir") + directory + "\\" + filename, true);
-                    BufferedWriter b = new BufferedWriter(f);
-                    PrintWriter extWriter = new PrintWriter(b);
-                    extWriter.println(data);
-                    extWriter.close();
-                    body = data;
-                    response = "Received\r\n" + "POST " + path + " HTTP/1.0\r\n" + "Content-Type:application/json\r\n"
-                            + "Content-Length: " + body.length() + "\r\n" + "\r\n" + body;
+                    if (inline) {
+                        PrintWriter extWriter = new PrintWriter(
+                                System.getProperty("user.dir") + directory + "\\" + filename);
+                        extWriter.write("\n" + data);
+                        extWriter.close();
+                        body = data;
+                        response = "Received\r\n" + "POST " + path + " HTTP/1.0\r\n"
+                                + "Content-Type:application/json\r\n" + "Content-Length: " + body.length() + "\r\n"
+                                + "\r\n" + body;
 
+                    } else {
+
+                        BufferedReader in = new BufferedReader(
+                                new FileReader(System.getProperty("user.dir") + directory + "\\" + filename));
+                        String line = "";
+                        StringBuilder StringBuilder = new StringBuilder();
+
+                        while ((line = in.readLine()) != null) {
+                            String formattedLine = line.replaceAll("[\\{\\}]", "").replaceAll("\\s", " ");
+
+                            String[] linesArray = formattedLine.split(",");
+                            for (int i = 0; i < linesArray.length; i++) {
+
+                                StringBuilder.append(linesArray[i] + ",");
+                                // System.out.println(linesArray[i]);
+                            }
+                            body = "{" + StringBuilder.toString().substring(0, StringBuilder.length() - 1) + "}";
+
+                            response = "Received\r\n" + "POST " + path + " HTTP/1.0\r\n"
+                                    + "Content-Type:application/json\r\n" + "Content-Length: " + body.length() + "\r\n"
+                                    + "\r\n" + body;
+                            in.close();
+                        }
+
+                    }
                     logger.info("Response sent to client\n" + response);
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -240,6 +278,7 @@ public class UDPServer {
 
             }
         } else {
+            System.out.println("pk");
             // must create directory
             // Creating a File object
             File file = new File(System.getProperty("user.dir") + directory);
@@ -279,6 +318,11 @@ public class UDPServer {
 
         return response;
 
+    }
+
+    public static String reassemble(String path) {
+
+        return path;
     }
 
 }

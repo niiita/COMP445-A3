@@ -1,0 +1,2 @@
+
+{"This is a post example": "of POST with -d", "Sample":"output"}

@@ -1,0 +1,8 @@
+{"This is an example": "of POST with -f", "Sample":"output"}
+{"This is an example": "of POST with -f", "Sample":"output"}
+{"This is an example": "of POST with -f", "Sample":"output"}
+{"This is an example": "of POST with -f", "Sample":"output"}
+{"This is an example": "of POST with -f", "Sample":"output"}
+{"This is an example": "of POST with -f", "Sample":"output"}
+{"This is an example": "of POST with -f", "Sample":"output"}
+
