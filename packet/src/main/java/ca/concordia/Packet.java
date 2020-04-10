@@ -1,25 +1,29 @@
 package ca.concordia;
+
 import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
- * Packet represents a simulated network packet.
- * As we don't have unsigned types in Java, we can achieve this by using a larger type.
+ * Packet represents a simulated network packet. As we don't have unsigned types
+ * in Java, we can achieve this by using a larger type.
  */
 public class Packet {
 
+    public static final int PAYLOAD_MAX_LEN = 1013;
     public static final int MIN_LEN = 11;
-    public static final int MAX_LEN = 11 + 1024;
+    public static final int MAX_LEN = MIN_LEN + PAYLOAD_MAX_LEN;
 
     private final int type;
     private final long sequenceNumber;
     private final InetAddress peerAddress;
     private final int peerPort;
     private final byte[] payload;
-
 
     public Packet(int type, long sequenceNumber, InetAddress peerAddress, int peerPort, byte[] payload) {
         this.type = type;
@@ -50,21 +54,17 @@ public class Packet {
     }
 
     /**
-     * Creates a builder from the current packet.
-     * It's used to create another packet by re-using some parts of the current packet.
+     * Creates a builder from the current packet. It's used to create another packet
+     * by re-using some parts of the current packet.
      */
-    public Builder toBuilder(){
-        return new Builder()
-                .setType(type)
-                .setSequenceNumber(sequenceNumber)
-                .setPeerAddress(peerAddress)
-                .setPortNumber(peerPort)
-                .setPayload(payload);
+    public Builder toBuilder() {
+        return new Builder().setType(type).setSequenceNumber(sequenceNumber).setPeerAddress(peerAddress)
+                .setPortNumber(peerPort).setPayload(payload);
     }
 
     /**
-     * Writes a raw presentation of the packet to byte buffer.
-     * The order of the buffer should be set as BigEndian.
+     * Writes a raw presentation of the packet to byte buffer. The order of the
+     * buffer should be set as BigEndian.
      */
     private void write(ByteBuffer buf) {
         buf.put((byte) type);
@@ -75,8 +75,8 @@ public class Packet {
     }
 
     /**
-     * Create a byte buffer in BigEndian for the packet.
-     * The returned buffer is flipped and ready for get operations.
+     * Create a byte buffer in BigEndian for the packet. The returned buffer is
+     * flipped and ready for get operations.
      */
     public ByteBuffer toBuffer() {
         ByteBuffer buf = ByteBuffer.allocate(MAX_LEN).order(ByteOrder.BIG_ENDIAN);
@@ -108,7 +108,7 @@ public class Packet {
         builder.setType(Byte.toUnsignedInt(buf.get()));
         builder.setSequenceNumber(Integer.toUnsignedLong(buf.getInt()));
 
-        byte[] host = new byte[]{buf.get(), buf.get(), buf.get(), buf.get()};
+        byte[] host = new byte[] { buf.get(), buf.get(), buf.get(), buf.get() };
         builder.setPeerAddress(Inet4Address.getByAddress(host));
         builder.setPortNumber(Short.toUnsignedInt(buf.getShort()));
 
@@ -127,6 +127,23 @@ public class Packet {
         buf.put(bytes);
         buf.flip();
         return fromBuffer(buf);
+    }
+
+    public static List<Packet> buildPacketList(int type, InetAddress peerAddress, int portNumber, byte[] payload) {
+        List<Packet> packetList = new ArrayList<Packet>();
+        int packetCount = (int) Math.ceil((double) payload.length / PAYLOAD_MAX_LEN);
+
+        for (int i = 0; i < packetCount; i++) {
+            int endRange = (i + 1) * PAYLOAD_MAX_LEN;
+            if (i + 1 == packetCount) {
+                endRange = payload.length;
+            }
+            byte[] payloadChunk = Arrays.copyOfRange(payload, i * PAYLOAD_MAX_LEN, endRange);
+            packetList.add(new Packet(type, i + 1, peerAddress, portNumber, payloadChunk));
+        }
+
+        return packetList;
+
     }
 
     @Override
@@ -170,4 +187,5 @@ public class Packet {
             return new Packet(type, sequenceNumber, peerAddress, portNumber, payload);
         }
     }
+
 }

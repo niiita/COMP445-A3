@@ -25,6 +25,7 @@ import java.io.InputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.*;
@@ -239,10 +240,16 @@ public class UDPClient {
         System.out.println("executing GET");
         try (DatagramChannel channel = DatagramChannel.open()) {
             String req = "GET " + path + " HTTP/1.0"; // body
+
             System.out.println("with request: " + req);
-            Packet p = new Packet.Builder().setType(0).setSequenceNumber(1L).setPortNumber(serverAddr.getPort())
-                    .setPeerAddress(serverAddr.getAddress()).setPayload(req.getBytes()).create();
-            channel.send(p.toBuffer(), routerAddr);
+            // Packet p = new
+            // Packet.Builder().setType(0).setSequenceNumber(1L).setPortNumber(serverAddr.getPort())
+            // .setPeerAddress(serverAddr.getAddress()).setPayload(req.getBytes()).create();
+            List<Packet> packets = Packet.buildPacketList(0, serverAddr.getAddress(), serverAddr.getPort(),
+                    req.getBytes());
+            for (Packet p : packets) {
+                channel.send(p.toBuffer(), routerAddr);
+            }
 
             // #System.out.println(p); #1 peer=localhost/127.0.0.1:8007, size=11
 
