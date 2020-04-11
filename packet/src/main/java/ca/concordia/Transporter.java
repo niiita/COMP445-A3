@@ -64,8 +64,10 @@ public class Transporter {
     }
 
     public static NetworkMessage listenForMessage(int port) {
+
         try (DatagramChannel channel = DatagramChannel.open()) {
             channel.bind(new InetSocketAddress(port));
+            logger.info("EchoServer is listening at {}", channel.getLocalAddress());
             ByteBuffer buf = ByteBuffer.allocate(Config.PKT_MAX_LEN).order(ByteOrder.BIG_ENDIAN);
             while (true) {
                 buf.clear();
