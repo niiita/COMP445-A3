@@ -35,34 +35,51 @@ public class UDPServer {
     private static final Logger logger = LoggerFactory.getLogger(UDPServer.class);
 
     private void listenAndServe(int port) {
-        for (;;) {
-            NetworkMessage receivedMessage = Transporter.listenForMessage(port);
-            if (receivedMessage == null) {
-                continue;
+        while (true) {
+            DatagramChannel channel = null;
+            try {
+                channel = DatagramChannel.open();
+                NetworkMessage receivedMessage = Transporter.listenForMessage(channel, port);
+                if (receivedMessage == null) {
+                    continue;
+                }
+
+                String[] req = receivedMessage.getPayload().split(" ", -2);
+                System.out.println("req array" + Arrays.toString(req));
+                // String path = "";
+                // for (int i = 1; i < req.length - 1; i++) {
+                // path = path.concat(req[i]);
+                // }
+
+                String responsePayload = "";
+
+                if (req[0].equalsIgnoreCase("GET")) {
+                    logger.info("GET request received: " + req[1]);
+                    responsePayload = get(req);
+                } else if (req[0].equalsIgnoreCase("POST")) {
+                    logger.info("POST request received: " + Arrays.toString(req).split(" ", -2));
+                    responsePayload = post(req);
+                } else {
+                    responsePayload = "Request invalid";
+                }
+
+                Transporter.transmitResponseFromServer(channel, responsePayload, receivedMessage.getRouterAddress(),
+                        receivedMessage.getPeerAddress(), receivedMessage.getPeerPort());
+                logger.info("Response sent successfully!");
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                logger.error("Error opening UDP channel: {}", e.getMessage());
+                return;
+            } finally {
+                if (channel != null) {
+                    try {
+                        channel.close();
+                    } catch (IOException ie) {
+                        ie.printStackTrace();
+                    }
+                }
             }
-
-            String[] req = receivedMessage.getPayload().split(" ", -2);
-            System.out.println("req array" + Arrays.toString(req));
-            // String path = "";
-            // for (int i = 1; i < req.length - 1; i++) {
-            // path = path.concat(req[i]);
-            // }
-
-            String responsePayload = "";
-
-            if (req[0].equalsIgnoreCase("GET")) {
-                logger.info("GET request received: " + req[1]);
-                responsePayload = get(req);
-            } else if (req[0].equalsIgnoreCase("POST")) {
-                logger.info("POST request received: " + Arrays.toString(req).split(" ", -2));
-                responsePayload = post(req);
-            } else {
-                responsePayload = "Request invalid";
-            }
-
-            Transporter.transport(responsePayload, receivedMessage.getRouterAddress(), receivedMessage.getPeerAddress(),
-                    receivedMessage.getPeerPort(), false);
-            logger.info("Response sent successfully!");
         }
     }
 
@@ -172,7 +189,9 @@ public class UDPServer {
                             .collect(Collectors.toList());
                     for (final ListIterator<String> i = result.listIterator(); i.hasNext();) {
                         final String element = i.next();
-                        body = body.concat(element.substring(element.lastIndexOf("\\"), element.length()) + "\n");
+                        // body = body.concat(element.substring(element.lastIndexOf("\\"),
+                        // element.length()) + "\n");
+                        body = body.concat(element + "\n");
                     }
                     response = "Received\r\n" + "HTTP/1.0 200 OK\r\n" + "Content-Length: " + body.length() + "\r\n"
                             + "Content-Disposition: inline" + "\r\n" + "Content-Disposition: attachment; filename=\""

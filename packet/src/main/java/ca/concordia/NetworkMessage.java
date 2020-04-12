@@ -2,6 +2,7 @@ package ca.concordia;
 
 import java.net.InetAddress;
 import java.net.SocketAddress;
+import java.nio.channels.DatagramChannel;
 
 public class NetworkMessage {
     private String payload;

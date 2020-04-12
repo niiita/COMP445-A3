@@ -215,17 +215,16 @@ public class UDPClient {
     private static void getRequest(SocketAddress routerAddr, InetSocketAddress serverAddr, String path) {
         String req = Httpc.createGetRequest(path);
         logger.info("Executing get request: {}", req);
-        String responsePayload = Transporter.transport(req, routerAddr, serverAddr.getAddress(), serverAddr.getPort(),
-                true);
+        String responsePayload = Transporter.transmitFromClient(req, routerAddr, serverAddr.getAddress(),
+                serverAddr.getPort());
         logger.info("Payload: {}", responsePayload);
-
     }
 
     private static void postRequest(SocketAddress routerAddr, InetSocketAddress serverAddr, String path) {
         String req = Httpc.createPostRequest(path);
         logger.info("Executing post request: {}", req);
-        String responsePayload = Transporter.transport(req, routerAddr, serverAddr.getAddress(), serverAddr.getPort(),
-                true);
+        String responsePayload = Transporter.transmitFromClient(req, routerAddr, serverAddr.getAddress(),
+                serverAddr.getPort());
         logger.info("Payload: {}", responsePayload);
 
     }

@@ -15,6 +15,15 @@ import java.util.List;
  */
 public class Packet {
 
+    public static final int DATA_PACKET_TYPE = 0;
+    public static final int SYN_PACKET_TYPE = 1;
+    public static final int SYNACK_PACKET_TYPE = 2;
+    public static final int ACK_PACKET_TYPE = 3;
+    public static final int PRE_DATA_PACKET_TYPE = 4;
+    public static final int PRE_DATA_ACK_PACKET_TYPE = 5;
+    public static final int RETRANSMIT_DATA_PACKET_TYPE = 6;
+    public static final int GOT_ALL_DATA_PACKET_TYPE = 7;
+
     private final int type;
     private final long sequenceNumber;
     private final InetAddress peerAddress;
@@ -49,13 +58,9 @@ public class Packet {
         return payload;
     }
 
-    /**
-     * Creates a builder from the current packet. It's used to create another packet
-     * by re-using some parts of the current packet.
-     */
-    public Builder toBuilder() {
-        return new Builder().setType(type).setSequenceNumber(sequenceNumber).setPeerAddress(peerAddress)
-                .setPortNumber(peerPort).setPayload(payload);
+    @Override
+    public String toString() {
+        return String.format("#%d peer=%s:%d, size=%d", sequenceNumber, peerAddress, peerPort, payload.length);
     }
 
     /**
@@ -75,7 +80,7 @@ public class Packet {
      * flipped and ready for get operations.
      */
     public ByteBuffer toBuffer() {
-        ByteBuffer buf = ByteBuffer.allocate(Config.PKT_MAX_LEN).order(ByteOrder.BIG_ENDIAN);
+        ByteBuffer buf = ByteBuffer.allocate(Config.PACKET_MAX_LEN).order(ByteOrder.BIG_ENDIAN);
         write(buf);
         buf.flip();
         return buf;
@@ -95,31 +100,26 @@ public class Packet {
      * fromBuffer creates a packet from the given ByteBuffer in BigEndian.
      */
     public static Packet fromBuffer(ByteBuffer buf) throws IOException {
-        if (buf.limit() < Config.PKT_MIN_LEN || buf.limit() > Config.PKT_MAX_LEN) {
+        if (buf.limit() < Config.PACKET_MIN_LEN || buf.limit() > Config.PACKET_MAX_LEN) {
+            System.out.println(String.format("Buffer length is: %d", buf.limit()));
             throw new IOException("Invalid length");
         }
 
-        Builder builder = new Builder();
-
-        builder.setType(Byte.toUnsignedInt(buf.get()));
-        builder.setSequenceNumber(Integer.toUnsignedLong(buf.getInt()));
-
-        byte[] host = new byte[] { buf.get(), buf.get(), buf.get(), buf.get() };
-        builder.setPeerAddress(Inet4Address.getByAddress(host));
-        builder.setPortNumber(Short.toUnsignedInt(buf.getShort()));
-
+        int type = Byte.toUnsignedInt(buf.get());
+        long seq = Integer.toUnsignedLong(buf.getInt());
+        InetAddress addr = Inet4Address.getByAddress(new byte[] { buf.get(), buf.get(), buf.get(), buf.get() });
+        int port = Short.toUnsignedInt(buf.getShort());
         byte[] payload = new byte[buf.remaining()];
         buf.get(payload);
-        builder.setPayload(payload);
 
-        return builder.create();
+        return new Packet(type, seq, addr, port, payload);
     }
 
     /**
      * fromBytes creates a packet from the given array of bytes.
      */
     public static Packet fromBytes(byte[] bytes) throws IOException {
-        ByteBuffer buf = ByteBuffer.allocate(Config.PKT_MAX_LEN).order(ByteOrder.BIG_ENDIAN);
+        ByteBuffer buf = ByteBuffer.allocate(Config.PACKET_MAX_LEN).order(ByteOrder.BIG_ENDIAN);
         buf.put(bytes);
         buf.flip();
         return fromBuffer(buf);
@@ -127,61 +127,53 @@ public class Packet {
 
     public static List<Packet> buildPacketList(int type, InetAddress peerAddress, int portNumber, byte[] payload) {
         List<Packet> packetList = new ArrayList<Packet>();
-        int packetCount = (int) Math.ceil((double) payload.length / Config.PKT_PAYLOAD_MAX_LEN);
+        int packetCount = (int) Math.ceil((double) payload.length / Config.PACKET_PAYLOAD_MAX_LEN);
 
         for (int i = 0; i < packetCount; i++) {
-            int endRange = (i + 1) * Config.PKT_PAYLOAD_MAX_LEN;
+            int endRange = (i + 1) * Config.PACKET_PAYLOAD_MAX_LEN;
             if (i + 1 == packetCount) {
                 endRange = payload.length;
             }
-            byte[] payloadChunk = Arrays.copyOfRange(payload, i * Config.PKT_PAYLOAD_MAX_LEN, endRange);
+            byte[] payloadChunk = Arrays.copyOfRange(payload, i * Config.PACKET_PAYLOAD_MAX_LEN, endRange);
             packetList.add(new Packet(type, i + 1, peerAddress, portNumber, payloadChunk));
         }
 
         return packetList;
-
     }
 
-    @Override
-    public String toString() {
-        return String.format("#%d peer=%s:%d, size=%d", sequenceNumber, peerAddress, peerPort, payload.length);
+    public static Packet buildPreDataPacket(InetAddress peerAddress, int portNumber, int dataSize) {
+        byte[] data = String.format("%d", dataSize).getBytes();
+        return new Packet(PRE_DATA_PACKET_TYPE, 44444444, peerAddress, portNumber, data);
     }
 
-    public static class Builder {
-        private int type;
-        private long sequenceNumber;
-        private InetAddress peerAddress;
-        private int portNumber;
-        private byte[] payload;
+    public static Packet buildPreDataAckPacket(InetAddress peerAddress, int portNumber) {
+        return new Packet(PRE_DATA_ACK_PACKET_TYPE, 55555555, peerAddress, portNumber, "".getBytes());
+    }
 
-        public Builder setType(int type) {
-            this.type = type;
-            return this;
-        }
+    public static Packet buildRetransmitRequestPacket(InetAddress peerAddress, int portNumber, int seqWanted) {
+        byte[] data = String.format("%d", seqWanted).getBytes();
+        return new Packet(RETRANSMIT_DATA_PACKET_TYPE, 66666666, peerAddress, portNumber, data);
+    }
 
-        public Builder setSequenceNumber(long sequenceNumber) {
-            this.sequenceNumber = sequenceNumber;
-            return this;
-        }
+    public static Packet buildGotAllDataPacket(InetAddress peerAddress, int portNumber) {
+        return buildHandshakePacket(GOT_ALL_DATA_PACKET_TYPE, peerAddress, portNumber, 77777777);
+    }
 
-        public Builder setPeerAddress(InetAddress peerAddress) {
-            this.peerAddress = peerAddress;
-            return this;
-        }
+    public static Packet buildSynPacket(InetAddress peerAddress, int portNumber) {
+        return buildHandshakePacket(SYN_PACKET_TYPE, peerAddress, portNumber, 11111111);
+    }
 
-        public Builder setPortNumber(int portNumber) {
-            this.portNumber = portNumber;
-            return this;
-        }
+    public static Packet buildSynAckPacket(InetAddress peerAddress, int portNumber) {
+        return buildHandshakePacket(SYNACK_PACKET_TYPE, peerAddress, portNumber, 22222222);
+    }
 
-        public Builder setPayload(byte[] payload) {
-            this.payload = payload;
-            return this;
-        }
+    public static Packet buildAckPacket(InetAddress peerAddress, int portNumber) {
+        return buildHandshakePacket(ACK_PACKET_TYPE, peerAddress, portNumber, 33333333);
+    }
 
-        public Packet create() {
-            return new Packet(type, sequenceNumber, peerAddress, portNumber, payload);
-        }
+    private static Packet buildHandshakePacket(int packetType, InetAddress peerAddress, int portNumber,
+            int sequenceNumber) {
+        return new Packet(packetType, sequenceNumber, peerAddress, portNumber, "".getBytes());
     }
 
 }

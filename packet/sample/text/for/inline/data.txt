@@ -1,1 +1,4 @@
 {"This is an example": "of POST with file", "Sample":"output"}
+
+{"This is an example": "of POST with inline data", "Sample":"output"}
+{"This is an example": "of POST with inline data gremlin", "Sample":"output"}
