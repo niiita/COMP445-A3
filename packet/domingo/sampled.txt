@@ -1,0 +1,14 @@
+{"This is an example": "of POST with -d", "Sample":"output"}
+{"This is an example": "of POST with -d", "Sample":"output"}
+{"This is an example": "of POST with -d", "Sample":"output"}
+{"This is an example": "of POST with -d", "Sample":"output"}
+{"This is an example": "of POST with -d", "Sample":"output"}
+{"This is an example": "of POST with -d", "Sample":"output"}
+{"This is an example": "of POST with -d", "Sample":"output"}
+{"This is an example": "of POST with -d", "Sample":"output"}
+{"This is an example": "of POST with -d", "Sample":"output"}
+{"This is an example": "of POST with -d", "Sample":"output"}
+{"This is an example": "of POST with -d", "Sample":"output"}
+{"This is an example": "of POST with -d", "Sample":"output"}
+{"This is an example": "of POST with -d", "Sample":"output"}
+{"This is an example": "of POST with -d", "Sample":"output"}
